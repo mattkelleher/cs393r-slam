@@ -58,6 +58,8 @@ void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
   // Return the latest pose estimate of the robot.
   *loc = Vector2f(0, 0);
   *angle = 0;
+  //curr_pose.loc = *loc;
+  //curr_pse.angle = *angle;
 }
 
 void SLAM::ObserveLaser(const vector<float>& ranges,
@@ -79,6 +81,12 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
   }
   // Keep track of odometry to estimate how far the robot has moved between 
   // poses.
+  // delta_x = odom_loc.x - prev_odom_loc.x;
+  // delta_y = odom_loc.y - prev_odom_loc.y;
+  // delta_angle = odom_angle - prev_odom_angle;
+  // delta_dist = sqrt(pow((odom_loc.x - prev_odom_loc.x), 2) + pow((odom_loc.y - prev_odom_loc.y), 2));
+  // prev_odom_loc = odom_loc;
+  // prev_odom_angle = odom_angle;
 }
 
 vector<Vector2f> SLAM::GetMap() {
