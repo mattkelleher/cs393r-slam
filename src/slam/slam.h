@@ -58,6 +58,10 @@ class SLAM {
   Eigen::Vector2f prev_odom_loc_;
   float prev_odom_angle_;
   bool odom_initialized_;
+  // Previous scans and associated transforms
+  std::vector<std::vector<Eigen::Vector2f>> prev_scans_;
+  std::vector<Eigen::MatrixXf> prev_transforms_;
+
 };
 }  // namespace slam
 

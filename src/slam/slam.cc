@@ -54,7 +54,9 @@ namespace slam {
 SLAM::SLAM() :
     prev_odom_loc_(0, 0),
     prev_odom_angle_(0),
-    odom_initialized_(false) {}
+    odom_initialized_(false),
+    prev_scans_(),
+    prev_transforms_() {}
 
 void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
   // Return the latest pose estimate of the robot.
