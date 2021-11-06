@@ -55,6 +55,7 @@ SLAM::SLAM() :
     prev_odom_loc_(0, 0),
     prev_odom_angle_(0),
     odom_initialized_(false),
+    add_pose_(true),
     prev_scans_(),
     prev_transforms_() {}
 
@@ -85,18 +86,39 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
   }
   // Keep track of odometry to estimate how far the robot has moved between 
   // poses.
-  // delta_x = odom_loc.x - prev_odom_loc.x;
-  // delta_y = odom_loc.y - prev_odom_loc.y;
-  // delta_angle = odom_angle - prev_odom_angle;
-  // delta_dist = sqrt(pow((odom_loc.x - prev_odom_loc.x), 2) + pow((odom_loc.y - prev_odom_loc.y), 2));
-  // prev_odom_loc = odom_loc;
-  // prev_odom_angle = odom_angle;
+  float delta_angle = odom_angle - prev_odom_angle_;
+  float delta_dist = sqrt(pow((odom_loc.x() - prev_odom_loc_.x()), 2) + pow((odom_loc.y() - prev_odom_loc_.y()), 2));
+
+  if((delta_angle > M_PI / 6.0) || delta_dist > 0.03) { //TODO what should thresholds be?
+    add_pose_ = true;
+    prev_odom_loc_ = odom_loc;  
+    prev_odom_angle_ = odom_angle;
+  }
 }
 
 vector<Vector2f> SLAM::GetMap() {
   vector<Vector2f> map;
   // Reconstruct the map as a single aligned point cloud from all saved poses
   // and their respective scans.
+  
+  // Go through all previous scans except the first scan in reverse order and 
+  // apply transformations 
+  for(size_t i = prev_scans_.size() - 1; i > 0; i--) {
+    // Update all points in current map
+    for(size_t j = 0; j < map.size(); j++){
+      map[j] = prev_transforms_[i] * map[j];  
+    }
+    // Add new points from scan[i] into map
+    for(auto p: prev_scans_[i]) {
+      map.push_back(prev_transforms_[i] * p);
+    }
+  } 
+  
+  // Add points from first scan, don't need transformations
+  for(auto p: prev_scans_[0]) {
+    map.push_back(p);
+  }
+  
   return map;
 }
 
