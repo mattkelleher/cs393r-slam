@@ -13,6 +13,8 @@ using std::cos;
 
 using Eigen::Vector2f;
 using Eigen::Matrix2f;
+using Eigen::MatrixXf;
+using Eigen::VectorXf;
 using Eigen::Rotation2Df;
 
 void DemoBasics() {
@@ -35,10 +37,27 @@ void DemoBasics() {
   m1  << 0, 2,
          3, 0;
   cout << "m1 = " << endl << m1 << endl;
+  
+  cout << "Initialize a 3D vector v2." << endl;
+  VectorXf v2(3);
+  v2 << 1, 2, 3;
+  cout << "v2= " << endl << v2 << endl;
+  
+  cout << "Initialize a 3x3 matrix m2." << endl;
+  MatrixXf m2(3,3);
+  m2  << 1, 2, 3,
+         4, 5, 6,
+         7, 8, 9;
+  cout << "m2 = " << endl << m2 << endl;
+  
+  cout << "Multiply 3x3 matrix by 3x1 vector" << endl;
+  VectorXf v4(3);
+  v4 = m2 * v2;
+  cout << "Resulting vector:\n" << v4 << endl;
 
   cout << "Multiply matrix times vector." << endl;
-  Vector2f v2 = m1 * v1;
-  cout << "Resulting vector:\n" << v2 << endl;
+  Vector2f v3 = m1 * v1;
+  cout << "Resulting vector:\n" << v3 << endl;
 }
 
 void DemoRotations() {

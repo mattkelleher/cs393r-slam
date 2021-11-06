@@ -40,6 +40,8 @@ using Eigen::Rotation2Df;
 using Eigen::Translation2f;
 using Eigen::Vector2f;
 using Eigen::Vector2i;
+using Eigen::VectorXf;
+using Eigen::MatrixXf;
 using std::cout;
 using std::endl;
 using std::string;
