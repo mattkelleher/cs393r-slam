@@ -29,6 +29,7 @@
 #include "shared/math/geometry.h"
 #include "shared/math/math_util.h"
 #include "shared/util/timer.h"
+#include "visualization/CImg.h"
 
 #include "slam.h"
 
@@ -48,6 +49,7 @@ using std::string;
 using std::swap;
 using std::vector;
 using vector_map::VectorMap;
+using cimg_library::CImg;
 
 namespace slam {
 
@@ -61,7 +63,7 @@ SLAM::SLAM() :
 
 void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
   // Return the latest pose estimate of the robot.
-  *loc = Vector2f(0, 0);
+  *loc = Vector2f(0, 0);  
   *angle = 0;
   //curr_pose.loc = *loc;
   //curr_pse.angle = *angle;
@@ -89,7 +91,7 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
   float delta_angle = odom_angle - prev_odom_angle_;
   float delta_dist = sqrt(pow((odom_loc.x() - prev_odom_loc_.x()), 2) + pow((odom_loc.y() - prev_odom_loc_.y()), 2));
 
-  if((delta_angle > M_PI / 6.0) || delta_dist > 0.03) { //TODO what should thresholds be?
+  if((delta_angle > M_PI / 6.0) || delta_dist > 0.5) { //TODO what should thresholds be?
     add_pose_ = true;
     prev_odom_loc_ = odom_loc;  
     prev_odom_angle_ = odom_angle;
