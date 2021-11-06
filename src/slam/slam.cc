@@ -106,11 +106,16 @@ vector<Vector2f> SLAM::GetMap() {
   for(size_t i = prev_scans_.size() - 1; i > 0; i--) {
     // Update all points in current map
     for(size_t j = 0; j < map.size(); j++){
-      map[j] = prev_transforms_[i] * map[j];  
+      map[j].x() = prev_transforms_[i](0,0) * map[j].x() + prev_transforms_[i](0,1) * map[j].y() + prev_transforms_[i](0,2);
+      map[j].y() = prev_transforms_[i](1,0) * map[j].x() + prev_transforms_[i](1,1) * map[j].y() + prev_transforms_[i](1,2);
     }
     // Add new points from scan[i] into map
     for(auto p: prev_scans_[i]) {
-      map.push_back(prev_transforms_[i] * p);
+      Vector2f point;
+      point.x() = prev_transforms_[i](0,0) * p.x() + prev_transforms_[i](0,1) * p.y() + prev_transforms_[i](0,2);
+      point.y() = prev_transforms_[i](1,0) * p.x() + prev_transforms_[i](1,1) * p.y() + prev_transforms_[i](1,2);
+      
+      map.push_back(point);
     }
   } 
   
