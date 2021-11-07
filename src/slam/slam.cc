@@ -42,7 +42,7 @@ using Eigen::Translation2f;
 using Eigen::Vector2f;
 using Eigen::Vector2i;
 using Eigen::VectorXf;
-using Eigen::MatrixXf;
+using Eigen::Matrix3f;
 using std::cout;
 using std::endl;
 using std::string;
@@ -61,7 +61,7 @@ SLAM::SLAM() :
     prev_scans_(),
     prev_transforms_() {}
 
-float ParticleFilter::_Distance(Vector2f p1, Vector2f p2) {
+float SLAM::_Distance(Vector2f p1, Vector2f p2) {
   return sqrt(pow(p1.x() - p2.x(), 2) + pow(p1.y() - p2.y(), 2));
 }
 
@@ -73,6 +73,10 @@ void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
   //curr_pse.angle = *angle;
 }
 
+Vector2i SLAM::GetRasterIndex(Vector2f point) {
+  return Vector2i(1,1);
+}
+
 void SLAM::ObserveLaser(const vector<float>& ranges,
                         float range_min,
                         float range_max,
@@ -81,86 +85,107 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   // A new laser scan has been observed. Decide whether to add it as a pose
   // for SLAM. If decided to add, align it to the scan from the last saved pose,
   // and save both the scan and the optimized pose.
-
-  // Initialize starting transform matrix guess T0 with odometry
-  Vector2f loc;
-  float theta;
-
-  // IMPORTANT: Assumed there was a variable called prev_loc and prev_angle
-  GetPose(loc, theta);  // I presume this gives us the current coordinates of the robot
-                        // If not, change
-
-  Matrix3f T0;  
-  float delta_x = loc.x() - prev_loc.x();
-  float delta_y = loc.y() - prev_loc.y();
-  float delta_theta = theta - prev_theta;
-  T0  <<  cos(delta_theta), sin(delta_theta), -loc.x()*cos(delta_theta)-loc.y()*sin(delta_theta),
-          -sin(delta_theta), cos(delta_theta), loc.x()*sin(delta_theta)-loc.y()*cos(delta_theta),
-          0, 0, 1;
-
-  // Initialize T and T_best
-  Matrix3f T, T_best;
-
-  // Initialize scan in current frame
-  const float distance_base2lidar = 0.2; // From assignment 1
+  if(add_pose_ == false) {
+    return;
+  }
+  add_pose_ = false;
+  
+  // Convert LIDAR to point cloud scan in current frame
+  const Vector2f laserLoc(0.2,0);
   float phi;
 
-  float x_base2lidar = distance_base2lidar * cos(angle);
-  float y_base2lidar = distance_base2lidar * sin(angle);
-
   vector<Vector2f> scan, T_scan;
-  float increment = (angle_max - angle_min) / range.size();
-  for (size_t i = 0; i < scan.size(); i++) {
-    phi = angle + (angle_min + i * increment);
-    scan(i) = Vector2f temp_loc(loc.x() + x_base2lidar + range(i)*cos(phi), loc.y() + y_base2lidar) + range(i)*sin(phi);
+  float increment = (angle_max - angle_min) / ranges.size();
+  for (size_t i = 0; i < ranges.size(); i+=10) {
+    phi = angle_min +  i * increment;
+    Vector2f point(ranges[i] * cos(phi), ranges[i] * sin(phi));
+    scan.push_back(point - laserLoc);
+  } 
+  prev_scans_.push_back(scan);
+  if(prev_scans_.size() == 1) {
+    Matrix3f hold; 
+    hold << 0,0,0,0,0,0,0,0,0;
+    prev_transforms_.push_back(hold);
+    return;
   }
+  
+  // Declare candidate transfore matrix, T and best tranform matrix T_best
+  Matrix3f T, T_best;
+  T << 0,0,0,
+       0,0,0,
+       0,0,0;
+  T_best << 0,0,0, 
+            0,0,0,
+            0,0,0; 
 
-  // Initialize randomized error generators
-  // I'm unsure if this is the correct method, but this should sample a normal distribution 
-  std::default_random_engine generator;
-
-  float var = 0.1; // Just a guess
-  std::normal_distribution<float> x_dist(prev_loc.x(),var);
-  std::normal_distribution<float> y_dist(prev_loc.y(),var);
-  std::normal_distribution<float> theta_dist(prev_theta,var);
-
-  // Check odometry to see if pose is sufficiently divergent
-  if ((_Distance(loc, prev_loc) > 0.5) || (abs(theta - prev_theta) > 30*2*M_PI/180)) {
-    for (int N = 1; N < 15; N++) {
-      if (N = 1) {
-        T = T0;
-      } else {
-        // Adding 'error' to Trasformation Matrix  
-        float delta_x = loc.x() - x_dist(generator);
-        float delta_y = loc.y() - y_dist(generator);
-        float delta_theta = theta - theta_dist(generator);
-        
-        T(0,0) = cos(delta_theta);
-        T(0,1) = sin(delta_theta);
-        T(0,2) = -delta_x*cos(delta_theta)-delta_y*sin(delta_theta);
-        T(1,0) = -sin(delta_theta);
-        T(1,1) = cos(delta_theta);
-        T(1,2) = delta_x*sin(delta_theta) -delta_y*cos(delta_theta);
-      }
-
-      for (int M = 1; M <= length(scan), M++) {
-        T_scan(M) = T * scan(i);
-      }
-      for (int M = 1; M <= length(T_scan), M++) {
-        // Read pixel data
-        int x_pixel = floor(raster.width()/2) + floor((prev_loc.x() - T_scan(M).x())/pixel_def);
-        int y_pixel = floor(raster.height()/2) + floor((prev_loc.y() - T_scan(M).y())/pixel_def);
-        prob += raster(x_pixel, y_pixel);
-      }
-      // Normalize probability
-      prob = prob/scan.size();
-
-      if (prob > prob_max) {
-        prob_max = prob;
-        T_best = T;
+  //check CUBE 
+  float prob_max = 0; 
+  for(int i = -45; i <=45; i++) { // check potential theta's -45 degrees to 45
+    float theta = M_PI / 180.0 * i; // angle in radians
+    vector<Vector2f> t_scan;  // scan pointcloud transformed with only rotation
+    //Define rotation matrix
+    T(0,0) = cos(theta);
+    T(0,1) = sin(theta);
+    T(0,2) = 0;
+    T(1,0) = -sin(theta);
+    T(1,1) = cos(theta);
+    T(1,2) = 0;
+    // Rotate scan
+    for (size_t m = 0; m < scan.size(); m++) {
+      Vector2f point;
+      point.x() = T(0,0) * scan[m].x() + T(0,1) * scan[m].y() + T(0,2);
+      point.y() = T(1,0) * scan[m].x() + T(1,1) * scan[m].y() + T(1,2);
+      t_scan.push_back(point);
+    }
+    //transform scan here (only once, we will then slide it around in inner loops)
+    for(int x = -100; x < 101; x+=5) { //translation in x direction +- 1m (j is in cm)
+      for(int y = -100; y < 101; y+=5) { // translation in y direction +-1m (k is in cm)
+        float prob = 0;
+        if (prob > prob_max) {
+          prob_max = prob;
+          T_best = T;
+          T_best(0,2) = -x * cos(theta) - y * sin(theta);
+          T_best(1,2) = x * sin(theta) - y * cos(theta);
+        }
       }
     }
   }
+
+ /* // Check odometry to see if pose is sufficiently divergent
+      // Adding 'error' to Trasformation Matrix  
+      float delta_x = loc.x() - x_dist(generator);
+      float delta_y = loc.y() - y_dist(generator);
+      float delta_theta = theta - theta_dist(generator);
+      
+      T(0,0) = cos(delta_theta);
+      T(0,1) = sin(delta_theta);
+      T(0,2) = -delta_x*cos(delta_theta)-delta_y*sin(delta_theta);
+      T(1,0) = -sin(delta_theta);
+      T(1,1) = cos(delta_theta);
+      T(1,2) = delta_x*sin(delta_theta) -delta_y*cos(delta_theta);
+    }
+    for (int M = 1; M <= length(scan), M++) {
+      Vector2f point;
+      point.x() = T(0,0) * scan[M].x() + T(0,1) * scan[M].y() + T(0,2);
+      point.y() = T(1,0) * scan[M].x() + T(1,1) * scan[M].y() + T(1,2);
+      T_scan.push_back(point)
+    }
+    for (int M = 1; M <= length(T_scan), M++) {
+      // Read pixel data
+      int x_pixel = std::floor(raster.width()/2) + std::floor((prev_loc.x() - T_scan[M].x())/pixel_def);
+      int y_pixel = std::floor(raster.height()/2) + std::floor((prev_loc.y() - T_scan[M].y())/pixel_def); 
+      prob += raster(x_pixel, y_pixel); //TODO what if x_pixel, y_pixel is off the raster?
+    }
+    // Normalize probability
+    if (prob > prob_max) {
+      prob_max = prob;
+      T_best = T;
+    }
+*/
+  
+  prev_transforms_.push_back(T_best); 
+
+  //TODO build raster from current scan (for next iteration of matching)
 }
 
 void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
@@ -170,6 +195,8 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
     odom_initialized_ = true;
     return;
   }
+  curr_odom_loc_ = odom_loc;
+  curr_odom_angle_ = odom_angle;
   // Keep track of odometry to estimate how far the robot has moved between 
   // poses.
   float delta_angle = odom_angle - prev_odom_angle_;
@@ -177,8 +204,8 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
 
   if((delta_angle > M_PI / 6.0) || delta_dist > 0.5) { //TODO what should thresholds be?
     add_pose_ = true;
-    prev_odom_loc_ = odom_loc;  
-    prev_odom_angle_ = odom_angle;
+    //prev_odom_loc_ = odom_loc;  
+    //prev_odom_angle_ = odom_angle;
   }
 }
 

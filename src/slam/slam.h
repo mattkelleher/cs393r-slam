@@ -42,6 +42,12 @@ class SLAM {
                     float angle_min,
                     float angle_max);
 
+  // Distance between 2 2D points
+  float _Distance(Eigen::Vector2f p1, Eigen::Vector2f p2);
+
+  // Returns index corresponding to point in raster
+  Eigen::Vector2i GetRasterIndex(Eigen::Vector2f point);
+
   // Observe new odometry-reported location.
   void ObserveOdometry(const Eigen::Vector2f& odom_loc,
                        const float odom_angle);
@@ -59,9 +65,12 @@ class SLAM {
   float prev_odom_angle_;
   bool odom_initialized_;
   bool add_pose_;
+  
+  Eigen::Vector2f curr_odom_loc_;
+  float curr_odom_angle_;
   // Previous scans and associated transforms
   std::vector<std::vector<Eigen::Vector2f>> prev_scans_;
-  std::vector<Eigen::MatrixXf> prev_transforms_;
+  std::vector<Eigen::Matrix3f> prev_transforms_;
 
 };
 }  // namespace slam
