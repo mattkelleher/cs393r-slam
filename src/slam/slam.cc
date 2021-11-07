@@ -73,8 +73,13 @@ void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
   //curr_pse.angle = *angle;
 }
 
+
 Vector2i SLAM::GetRasterIndex(Vector2f point) {
   return Vector2i(1,1);
+}
+
+void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
+
 }
 
 void SLAM::ObserveLaser(const vector<float>& ranges,

@@ -21,9 +21,11 @@
 
 #include <algorithm>
 #include <vector>
+#include <cmath>
 
 #include "eigen3/Eigen/Dense"
 #include "eigen3/Eigen/Geometry"
+#include "visualization/CImg.h"
 
 #ifndef SRC_SLAM_H_
 #define SRC_SLAM_H_
@@ -48,6 +50,9 @@ class SLAM {
   // Returns index corresponding to point in raster
   Eigen::Vector2i GetRasterIndex(Eigen::Vector2f point);
 
+  // Create raster image from pointCloud
+  void MakeRaster(std::vector<Eigen::Vector2f> pointCloud);
+  
   // Observe new odometry-reported location.
   void ObserveOdometry(const Eigen::Vector2f& odom_loc,
                        const float odom_angle);
@@ -71,6 +76,9 @@ class SLAM {
   // Previous scans and associated transforms
   std::vector<std::vector<Eigen::Vector2f>> prev_scans_;
   std::vector<Eigen::Matrix3f> prev_transforms_;
+
+  // Raster image
+  cimg_library::CImg<float> raster_;
 
 };
 }  // namespace slam
