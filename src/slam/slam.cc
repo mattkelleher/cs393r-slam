@@ -50,6 +50,7 @@ using std::swap;
 using std::vector;
 using vector_map::VectorMap;
 using cimg_library::CImg;
+using cimg_library::CImgDisplay;
 
 namespace slam {
 
@@ -75,11 +76,33 @@ void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
 
 
 Vector2i SLAM::GetRasterIndex(Vector2f point) {
-  return Vector2i(1,1);
+  Vector2i index;
+  index.x() = raster_.width() / 2 + 25 * int(point.x()) ;
+  index.y() = raster_.height() / 2 + 25 * int(point.y());
+  
+  return index;  
 }
 
 void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
-
+  // We have a resolution of 4cm, total space is 62m (30m max range from center in all direction
+  // + bonus 2m for translation (max should only be 1m so we should never get out of bounds indices.
+  // As such our image only needs to be 6200/4 = 800px by 800px. Each pixel corresponds to a 
+  // 4cm x 4cm area in the real world  
+  CImg<float> image(1600, 1600, 1, 1, 0);
+/*  for(auto point : pointCloud) {
+    Vector2i index = GetRasterIndex(point);
+    if(index.x() < 0 || index.x() > (raster_.width() - 1) || index.y() < 0 || index.y() > (raster_.height() - 1)) {
+      std::cout << "Encountered OOB index, this should not be happening" << std::endl;
+      std::cout << "Point: (" << point.x() << ", " << point.y() << ")   Index[" << index.x() << "][" << index.y() << "]" << std::endl;
+      continue;
+    }
+    float color = 1;
+    image.draw_point(index.x(), index.y(), &color); 
+  }
+  
+  image.blur(2.5); //TODO blur over 10cm, not sure what value this should be
+  raster_ = image; 
+*/ 
 }
 
 void SLAM::ObserveLaser(const vector<float>& ranges,
@@ -154,8 +177,8 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
       t_scan.push_back(point);
     }
     //transform scan here (only once, we will then slide it around in inner loops)
-    for(int x = -100; x < 101; x+=5) { //translation in x direction +- 1m (j is in cm)
-      for(int y = -100; y < 101; y+=5) { // translation in y direction +-1m (k is in cm)
+    for(int x = -100; x < 101; x+=4) { //translation in x direction +- 1m (j is in cm)
+      for(int y = -100; y < 101; y+=4) { // translation in y direction +-1m (k is in cm)
         float prob = 0;
         if (prob > prob_max) {
           prob_max = prob;
