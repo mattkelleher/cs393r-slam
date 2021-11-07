@@ -90,6 +90,14 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   // A new laser scan has been observed. Decide whether to add it as a pose
   // for SLAM. If decided to add, align it to the scan from the last saved pose,
   // and save both the scan and the optimized pose.
+  float max_range = 0;
+  for(auto p : ranges) {
+    if(p > max_range) {
+      max_range = p;
+    }
+  }
+  std::cout << "range_max: " << range_max << ", maximum range in scan: " << max_range << std::endl;
+  return;
   if(add_pose_ == false) {
     return;
   }
@@ -103,6 +111,9 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   float increment = (angle_max - angle_min) / ranges.size();
   for (size_t i = 0; i < ranges.size(); i+=10) {
     phi = angle_min +  i * increment;
+    if(ranges[i] > range_max) {
+      continue; 
+    }
     Vector2f point(ranges[i] * cos(phi), ranges[i] * sin(phi));
     scan.push_back(point - laserLoc);
   } 
@@ -221,6 +232,10 @@ vector<Vector2f> SLAM::GetMap() {
   
   // Go through all previous scans except the first scan in reverse order and 
   // apply transformations 
+  std::cout << "TEST" << std::endl;
+  std::cout << prev_scans_.size() << std::endl;
+  std::cout << "END TEST" << std::endl;
+
   for(size_t i = prev_scans_.size() - 1; i > 0; i--) {
     // Update all points in current map
     for(size_t j = 0; j < map.size(); j++){
@@ -238,10 +253,11 @@ vector<Vector2f> SLAM::GetMap() {
   } 
   
   // Add points from first scan, don't need transformations
-  for(auto p: prev_scans_[0]) {
-    map.push_back(p);
+  if(prev_scans_.size() > 0) {
+    for(auto p: prev_scans_[0]) {
+      map.push_back(p);
+    }
   }
-  
   return map;
 }
 
