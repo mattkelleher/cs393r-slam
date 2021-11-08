@@ -116,14 +116,6 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   // for SLAM. If decided to add, align it to the scan from the last saved pose,
   // and save both the scan and the optimized pose.
   std::cout << "Entering Observe Laser" << std::endl;
-  float max_range = 0;
-  for(auto p : ranges) {
-    if(p > max_range) {
-      max_range = p;
-    }
-  }
-  std::cout << "range_max: " << range_max << ", maximum range in scan: " << max_range << std::endl;
-  return;
   if(add_pose_ == false) {
     return;
   }
@@ -142,7 +134,8 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
     }
     Vector2f point(ranges[i] * cos(phi), ranges[i] * sin(phi));
     scan.push_back(point - laserLoc);
-  } 
+  }
+  cout << "Saving point cloud with: " << scan.size() << " points" << endl; 
   prev_scans_.push_back(scan);
   if(prev_scans_.size() == 1) {
     MakeRaster(scan);
@@ -227,9 +220,10 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
   float delta_dist = sqrt(pow((odom_loc.x() - prev_odom_loc_.x()), 2) + pow((odom_loc.y() - prev_odom_loc_.y()), 2));
 
   if((delta_angle > M_PI / 6.0) || delta_dist > 0.5) { //TODO what should thresholds be?
+    cout << "Threshold exceeded, add pose !!" << endl;
     add_pose_ = true;
-    //prev_odom_loc_ = odom_loc;  
-    //prev_odom_angle_ = odom_angle;
+    prev_odom_loc_ = odom_loc;  
+    prev_odom_angle_ = odom_angle;
   }
 }
 
@@ -245,9 +239,6 @@ vector<Vector2f> SLAM::GetMap() {
   } 
   // Go through all previous scans except the first scan in reverse order and 
   // apply transformations 
-  std::cout << "TEST" << std::endl;
-  std::cout << prev_scans_.size() << std::endl;
-  std::cout << "END TEST" << std::endl;
 
   for(size_t i = prev_scans_.size() - 1; i > 0; i--) {
     // Update all points in current map
@@ -270,7 +261,6 @@ vector<Vector2f> SLAM::GetMap() {
   for(auto p: prev_scans_[0]) {
     map.push_back(p);
   }
-  std::cout << "Exiting Get Map" << std::endl;
   return map;
 }
 
