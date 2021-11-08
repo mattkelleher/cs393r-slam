@@ -97,16 +97,17 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
       std::cout << "Point: (" << point.x() << ", " << point.y() << ")   Index[" << index.x() << "][" << index.y() << "]" << std::endl;
       continue;
     }
-    float color = 1;
-    image.draw_point(index.x(), index.y(), &color); 
+    float color = 0.5;
+    image.draw_circle(index.x(), index.y(), 5, &color); 
   }
   
   image.blur(2.5); //TODO blur over 10cm, not sure what value this should be
   raster_ = image; 
-  CImgDisplay main_disp(raster_, "Raster Image");
-  while(!main_disp.is_close()) {
-    main_disp.wait();
-  }  
+  raster_.save("raster.png");
+  //CImgDisplay main_disp(raster_, "Raster Image");
+  //while(!main_disp.is_close()) {
+  //  main_disp.wait();
+  //}  
 
 }
 
