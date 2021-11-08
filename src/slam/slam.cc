@@ -103,7 +103,10 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
   
   image.blur(2.5); //TODO blur over 10cm, not sure what value this should be
   raster_ = image; 
-  CImgDisplay main_disp(raster_, "Raster Image");  
+  CImgDisplay main_disp(raster_, "Raster Image");
+  while(!main_disp.is_close()) {
+    main_disp.wait();
+  }  
 
 }
 
