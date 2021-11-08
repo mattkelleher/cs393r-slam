@@ -79,7 +79,7 @@ void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
 Vector2i SLAM::GetRasterIndex(Vector2f point) {
   Vector2i index;
   index.x() = raster_.width() / 2 + 25 * int(point.x()) ;
-  index.y() = raster_.height() / 2 + 25 * int(point.y());
+  index.y() = raster_.height() / 2 - 25 * int(point.y());
   
   return index;  
 }
@@ -127,7 +127,7 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
 
   vector<Vector2f> scan, T_scan;
   float increment = (angle_max - angle_min) / ranges.size();
-  for (size_t i = 0; i < ranges.size(); i+=10) {
+  for (size_t i = 0; i < ranges.size(); i+=3) {
     phi = angle_min +  i * increment;
     if(ranges[i] > range_max) {
       continue; 
@@ -161,9 +161,9 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
     vector<Vector2f> t_scan;  // scan pointcloud transformed with only rotation
     //Define rotation matrix
     T(0,0) = cos(theta);
-    T(0,1) = sin(theta);
+    T(0,1) = -sin(theta);
     T(0,2) = 0;
-    T(1,0) = -sin(theta);
+    T(1,0) = sin(theta);
     T(1,1) = cos(theta);
     T(1,2) = 0;
     // Rotate scan
@@ -184,8 +184,9 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
         if (prob > prob_max) {
           prob_max = prob;
           T_best = T;
-          T_best(0,2) = -x * cos(theta) - y * sin(theta);
-          T_best(1,2) = x * sin(theta) - y * cos(theta);
+          T_best(0,2) = x/100.0 * cos(theta) - y/100.0 * sin(theta);
+          T_best(1,2) = x/100.0 * sin(theta) + y/100.0 * cos(theta);
+          cout << "########## " << prob << "/" << t_scan.size() << endl  << T_best << endl << "$$$$$$$$$$$$$$$" << endl;
         }
       }
     }
@@ -193,13 +194,13 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
 
 /*      
       T(0,0) = cos(delta_theta);
-      T(0,1) = sin(delta_theta);
-      T(0,2) = -delta_x*cos(delta_theta)-delta_y*sin(delta_theta);
-      T(1,0) = -sin(delta_theta);
+      T(0,1) = -sin(delta_theta);
+      T(0,2) = delta_x*cos(delta_theta)-delta_y*sin(delta_theta);
+      T(1,0) = sin(delta_theta);
       T(1,1) = cos(delta_theta);
-      T(1,2) = delta_x*sin(delta_theta) -delta_y*cos(delta_theta);
+      T(1,2) = delta_x*sin(delta_theta) + delta_y*cos(delta_theta);
 */
-  
+  cout << "Best transformation matrix: " << endl << T_best << endl;  
   prev_transforms_.push_back(T_best); 
   MakeRaster(scan); 
 }
