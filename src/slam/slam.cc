@@ -89,6 +89,7 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
   // + bonus 2m for translation (max should only be 1m so we should never get out of bounds indices.
   // As such our image only needs to be 6200/4 = 800px by 800px. Each pixel corresponds to a 
   // 4cm x 4cm area in the real world  
+  std::cout << "Entering Make Raster" << std::endl;
   CImg<float> image(1600, 1600, 1, 1, 0);
   for(auto point : pointCloud) {
     Vector2i index = GetRasterIndex(point);
@@ -114,6 +115,7 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   // A new laser scan has been observed. Decide whether to add it as a pose
   // for SLAM. If decided to add, align it to the scan from the last saved pose,
   // and save both the scan and the optimized pose.
+  std::cout << "Entering Observe Laser" << std::endl;
   float max_range = 0;
   for(auto p : ranges) {
     if(p > max_range) {
@@ -210,6 +212,7 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
 }
 
 void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
+  std::cout << "Entering Observe Odometry" << std::endl;
   if (!odom_initialized_) {
     prev_odom_angle_ = odom_angle;
     prev_odom_loc_ = odom_loc;
@@ -231,10 +234,15 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
 }
 
 vector<Vector2f> SLAM::GetMap() {
+  std::cout << "Entering Get Map" << std::endl;
   vector<Vector2f> map;
   // Reconstruct the map as a single aligned point cloud from all saved poses
   // and their respective scans.
-  
+
+  // No we dont have any scans so we cant build a map
+  if(prev_scans_.size() == 0) {
+    return map;
+  } 
   // Go through all previous scans except the first scan in reverse order and 
   // apply transformations 
   std::cout << "TEST" << std::endl;
@@ -243,6 +251,7 @@ vector<Vector2f> SLAM::GetMap() {
 
   for(size_t i = prev_scans_.size() - 1; i > 0; i--) {
     // Update all points in current map
+    std::cout << "test: " << i << std::endl;
     for(size_t j = 0; j < map.size(); j++){
       map[j].x() = prev_transforms_[i](0,0) * map[j].x() + prev_transforms_[i](0,1) * map[j].y() + prev_transforms_[i](0,2);
       map[j].y() = prev_transforms_[i](1,0) * map[j].x() + prev_transforms_[i](1,1) * map[j].y() + prev_transforms_[i](1,2);
@@ -258,11 +267,10 @@ vector<Vector2f> SLAM::GetMap() {
   } 
   
   // Add points from first scan, don't need transformations
-  if(prev_scans_.size() > 0) {
-    for(auto p: prev_scans_[0]) {
-      map.push_back(p);
-    }
+  for(auto p: prev_scans_[0]) {
+    map.push_back(p);
   }
+  std::cout << "Exiting Get Map" << std::endl;
   return map;
 }
 
