@@ -89,8 +89,8 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
   // + bonus 2m for translation (max should only be 1m so we should never get out of bounds indices.
   // As such our image only needs to be 6200/4 = 800px by 800px. Each pixel corresponds to a 
   // 4cm x 4cm area in the real world  
-  //CImg<float> image(1600, 1600, 1, 1, 0);
-/*  for(auto point : pointCloud) {
+  CImg<float> image(1600, 1600, 1, 1, 0);
+  for(auto point : pointCloud) {
     Vector2i index = GetRasterIndex(point);
     if(index.x() < 0 || index.x() > (raster_.width() - 1) || index.y() < 0 || index.y() > (raster_.height() - 1)) {
       std::cout << "Encountered OOB index, this should not be happening" << std::endl;
@@ -103,7 +103,7 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
   
   image.blur(2.5); //TODO blur over 10cm, not sure what value this should be
   raster_ = image; 
-*/ 
+
 }
 
 void SLAM::ObserveLaser(const vector<float>& ranges,
@@ -143,6 +143,7 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   } 
   prev_scans_.push_back(scan);
   if(prev_scans_.size() == 1) {
+    MakeRaster(scan);
     Matrix3f hold; 
     hold << 0,0,0,0,0,0,0,0,0;
     prev_transforms_.push_back(hold);
@@ -171,16 +172,20 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
     T(1,1) = cos(theta);
     T(1,2) = 0;
     // Rotate scan
+    // transform scan here (only once, we will then slide it around in inner loops)
     for (size_t m = 0; m < scan.size(); m++) {
       Vector2f point;
       point.x() = T(0,0) * scan[m].x() + T(0,1) * scan[m].y() + T(0,2);
       point.y() = T(1,0) * scan[m].x() + T(1,1) * scan[m].y() + T(1,2);
       t_scan.push_back(point);
     }
-    //transform scan here (only once, we will then slide it around in inner loops)
     for(int x = -100; x < 101; x+=4) { //translation in x direction +- 1m (j is in cm)
       for(int y = -100; y < 101; y+=4) { // translation in y direction +-1m (k is in cm)
         float prob = 0;
+        for(auto p : t_scan) {
+          Vector2i index = GetRasterIndex(p + Vector2f(x/100.0, y/100.0));
+          prob += raster_(index.y(), index.x()); 
+        }
         if (prob > prob_max) {
           prob_max = prob;
           T_best = T;
@@ -191,41 +196,17 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
     }
   }
 
- /* // Check odometry to see if pose is sufficiently divergent
-      // Adding 'error' to Trasformation Matrix  
-      float delta_x = loc.x() - x_dist(generator);
-      float delta_y = loc.y() - y_dist(generator);
-      float delta_theta = theta - theta_dist(generator);
-      
+/*      
       T(0,0) = cos(delta_theta);
       T(0,1) = sin(delta_theta);
       T(0,2) = -delta_x*cos(delta_theta)-delta_y*sin(delta_theta);
       T(1,0) = -sin(delta_theta);
       T(1,1) = cos(delta_theta);
       T(1,2) = delta_x*sin(delta_theta) -delta_y*cos(delta_theta);
-    }
-    for (int M = 1; M <= length(scan), M++) {
-      Vector2f point;
-      point.x() = T(0,0) * scan[M].x() + T(0,1) * scan[M].y() + T(0,2);
-      point.y() = T(1,0) * scan[M].x() + T(1,1) * scan[M].y() + T(1,2);
-      T_scan.push_back(point)
-    }
-    for (int M = 1; M <= length(T_scan), M++) {
-      // Read pixel data
-      int x_pixel = std::floor(raster.width()/2) + std::floor((prev_loc.x() - T_scan[M].x())/pixel_def);
-      int y_pixel = std::floor(raster.height()/2) + std::floor((prev_loc.y() - T_scan[M].y())/pixel_def); 
-      prob += raster(x_pixel, y_pixel); //TODO what if x_pixel, y_pixel is off the raster?
-    }
-    // Normalize probability
-    if (prob > prob_max) {
-      prob_max = prob;
-      T_best = T;
-    }
 */
   
   prev_transforms_.push_back(T_best); 
-
-  //TODO build raster from current scan (for next iteration of matching)
+  MakeRaster(scan); 
 }
 
 void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
