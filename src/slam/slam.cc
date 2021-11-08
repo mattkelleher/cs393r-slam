@@ -60,7 +60,8 @@ SLAM::SLAM() :
     odom_initialized_(false),
     add_pose_(true),
     prev_scans_(),
-    prev_transforms_() {}
+    prev_transforms_(),
+    raster_(1600,1600,1,1,0) {}
 
 float SLAM::_Distance(Vector2f p1, Vector2f p2) {
   return sqrt(pow(p1.x() - p2.x(), 2) + pow(p1.y() - p2.y(), 2));
@@ -88,7 +89,7 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
   // + bonus 2m for translation (max should only be 1m so we should never get out of bounds indices.
   // As such our image only needs to be 6200/4 = 800px by 800px. Each pixel corresponds to a 
   // 4cm x 4cm area in the real world  
-  CImg<float> image(1600, 1600, 1, 1, 0);
+  //CImg<float> image(1600, 1600, 1, 1, 0);
 /*  for(auto point : pointCloud) {
     Vector2i index = GetRasterIndex(point);
     if(index.x() < 0 || index.x() > (raster_.width() - 1) || index.y() < 0 || index.y() > (raster_.height() - 1)) {
