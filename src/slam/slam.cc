@@ -80,7 +80,6 @@ Vector2i SLAM::GetRasterIndex(Vector2f point) {
   Vector2i index;
   index.x() = raster_.width() / 2 + 25 * int(point.x()) ;
   index.y() = raster_.height() / 2 - 25 * int(point.y());
-  
   return index;  
 }
 
@@ -104,6 +103,7 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
   
   image.blur(2.5); //TODO blur over 10cm, not sure what value this should be
   raster_ = image; 
+  CImgDisplay main_disp(raster_, "Raster Image");  
 
 }
 
@@ -240,10 +240,9 @@ vector<Vector2f> SLAM::GetMap() {
   } 
   // Go through all previous scans except the first scan in reverse order and 
   // apply transformations 
-
+  cout << "Num Maps: " << prev_scans_.size() << endl;
   for(size_t i = prev_scans_.size() - 1; i > 0; i--) {
     // Update all points in current map
-    std::cout << "test: " << i << std::endl;
     for(size_t j = 0; j < map.size(); j++){
       map[j].x() = prev_transforms_[i](0,0) * map[j].x() + prev_transforms_[i](0,1) * map[j].y() + prev_transforms_[i](0,2);
       map[j].y() = prev_transforms_[i](1,0) * map[j].x() + prev_transforms_[i](1,1) * map[j].y() + prev_transforms_[i](1,2);
