@@ -78,8 +78,8 @@ void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
 
 Vector2i SLAM::GetRasterIndex(Vector2f point) {
   Vector2i index;
-  index.x() = raster_.width() / 2 + 25 * int(point.x()) ;
-  index.y() = raster_.height() / 2 - 25 * int(point.y());
+  index.x() = raster_.width() / 2 +  int(point.x() * 100) / 4;
+  index.y() = raster_.height() / 2 - int(point.y()* 100) / 4;
   return index;  
 }
 
@@ -98,10 +98,11 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
       continue;
     }
     float color = 0.5;
+    cout << "@@@@@@@@@@@@@@@@@@ Drawing point (" << point.x() << ", " << point.y() << ") at: [" << index.x() << "][" << index.y() << "]" << endl;
     image.draw_circle(index.x(), index.y(), 5, &color); 
   }
   
-  image.blur(2.5); //TODO blur over 10cm, not sure what value this should be
+  image.blur(4); //TODO blur over 10cm, not sure what value this should be
   raster_ = image; 
   raster_.save("raster.png");
   //CImgDisplay main_disp(raster_, "Raster Image");
