@@ -78,8 +78,8 @@ void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
 
 Vector2i SLAM::GetRasterIndex(Vector2f point) {
   Vector2i index;
-  index.x() = raster_.width() / 2 +  int(point.x() * 100) / 4;
-  index.y() = raster_.height() / 2 - int(point.y()* 100) / 4;
+  index.x() = raster_.width() / 2 +  int(point.x() * 100.0 / 4.0);
+  index.y() = raster_.height() / 2 - int(point.y() * 100.0 / 4.0);
   return index;  
 }
 
