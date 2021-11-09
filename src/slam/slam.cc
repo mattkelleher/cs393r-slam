@@ -150,6 +150,23 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
     return;
   }
   
+  // Motion model
+  float delta_x = curr_odom_loc_.x() - prev_odom_loc_.x();
+  float delta_y = curr_odom_loc_.y() - prev_odom_loc_.y();
+  float delta_angle = curr_odom_angle_ - prev_odom_angle_;
+  
+  float k1 = 0.05;
+  float k2 = 0.025;
+  float k3 = 0.10; 
+  float k4 = 0.35;
+  
+  float std_loc = k1 * sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + k2 * abs(delta_angle);
+  float std_angle = k3 * sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + k4 * abs(delta_angle);
+  
+  // Reset prev odom 
+  prev_odom_loc_ = curr_odom_loc_;
+  prev_odom_angle_ = curr_odom_angle_;  
+  
   // Declare candidate transfore matrix, T and best tranform matrix T_best
   Matrix3f T, T_best;
   T << 0,0,0,
@@ -160,7 +177,7 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
             0,0,0; 
 
   //check CUBE 
-  float prob_max = 0; 
+  double prob_max = 0; 
   for(int i = -45; i <=45; i++) { // check potential theta's -45 degrees to 45
     float theta = M_PI / 180.0 * i; // angle in radians
     vector<Vector2f> t_scan;  // scan pointcloud transformed with only rotation
@@ -181,17 +198,22 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
     }
     for(int x = -100; x < 101; x+=4) { //translation in x direction +- 1m (j is in cm)
       for(int y = -100; y < 101; y+=4) { // translation in y direction +-1m (k is in cm)
-        float prob = 0;
+        double OLH_prob = 0;
         for(auto p : t_scan) {
           Vector2i index = GetRasterIndex(p + Vector2f(x/100.0, y/100.0));
-          prob += raster_(index.y(), index.x()); 
+          OLH_prob += raster_(index.y(), index.x()); 
         }
-        if (prob > prob_max) {
-          prob_max = prob;
+        OLH_prob = OLH_prob / t_scan.size();
+        double MM_prob = (-1 * pow(x/100.0 - delta_x, 2) / (2 * pow(std_loc, 2)) 
+                  + -1 * pow(y/100.0 - delta_y, 2) / (2 * pow(std_loc, 2))
+                  + -1 * pow(theta - delta_angle, 2) / (2 * pow(std_angle, 2)));
+        MM_prob = exp(MM_prob);
+        if (OLH_prob * MM_prob > prob_max) {
+          prob_max = OLH_prob + MM_prob;
           T_best = T;
           T_best(0,2) = x/100.0 * cos(theta) - y/100.0 * sin(theta);
           T_best(1,2) = x/100.0 * sin(theta) + y/100.0 * cos(theta);
-          cout << "########## " << prob << "/" << t_scan.size() << endl  << T_best << endl << "$$$$$$$$$$$$$$$" << endl;
+          cout << "########## " << prob_max << "/" << t_scan.size() << endl  << T_best << endl << "$$$$$$$$$$$$$$$" << endl;
         }
       }
     }
@@ -228,8 +250,6 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
   if((delta_angle > M_PI / 6.0) || delta_dist > 0.5) { //TODO what should thresholds be?
     cout << "Threshold exceeded, add pose !!" << endl;
     add_pose_ = true;
-    prev_odom_loc_ = odom_loc;  
-    prev_odom_angle_ = odom_angle;
   }
 }
 
