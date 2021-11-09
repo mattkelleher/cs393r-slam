@@ -69,10 +69,16 @@ float SLAM::_Distance(Vector2f p1, Vector2f p2) {
 
 void SLAM::GetPose(Eigen::Vector2f* loc, float* angle) const {
   // Return the latest pose estimate of the robot.
-  *loc = Vector2f(0, 0);  
-  *angle = 0;
-  //curr_pose.loc = *loc;
-  //curr_pse.angle = *angle;
+  
+  Vector2f mLoc(0, 0);  
+  float mAngle = 0;
+  for(auto m: prev_transforms_) {
+    mAngle += asin(m(1,0));
+    mLoc.x() += m(2,0) * cos(mAngle) + m(2,1) * sin(mAngle);
+    mLoc.y() += m(2,1) * cos(mAngle) + m(2,0) * sin(mAngle);
+  }
+  *loc = mLoc; 
+  *angle = mAngle;
 }
 
 
@@ -88,8 +94,9 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
   // + bonus 2m for translation (max should only be 1m so we should never get out of bounds indices.
   // As such our image only needs to be 6200/4 = 800px by 800px. Each pixel corresponds to a 
   // 4cm x 4cm area in the real world  
-  std::cout << "Entering Make Raster" << std::endl;
+  //std::cout << "Entering Make Raster" << std::endl;
   CImg<float> image(1600, 1600, 1, 1, 0);
+  //raster_(1600, 1600, 1, 1, 0);
   for(auto point : pointCloud) {
     Vector2i index = GetRasterIndex(point);
     if(index.x() < 0 || index.x() > (raster_.width() - 1) || index.y() < 0 || index.y() > (raster_.height() - 1)) {
@@ -97,18 +104,28 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
       std::cout << "Point: (" << point.x() << ", " << point.y() << ")   Index[" << index.x() << "][" << index.y() << "]" << std::endl;
       continue;
     }
-    float color = 0.5;
-    cout << "@@@@@@@@@@@@@@@@@@ Drawing point (" << point.x() << ", " << point.y() << ") at: [" << index.x() << "][" << index.y() << "]" << endl;
-    image.draw_circle(index.x(), index.y(), 5, &color); 
+    //float color = 1.0;
+    //cout << "@@@@@@@@@@@@@@@@@@ Drawing point (" << point.x() << ", " << point.y() << ") at: [" << index.x() << "][" << index.y() << "]" << endl;
+    //image.draw_point(index.x(), index.y(), &color);
+    image(index.x(), index.y()) += 1;
+    //raster_.draw_point(index.x(), index.y(), &color);
+    //cout << "Point has value: " << image(index.x(), index.y()) << endl; 
+    //cout << "Point has value: " << raster_(index.x(), index.y()) << endl; 
   }
   
   image.blur(4); //TODO blur over 10cm, not sure what value this should be
+  //raster_.blur(4); //TODO remove 
   raster_ = image; 
   raster_.save("raster.png");
-  //CImgDisplay main_disp(raster_, "Raster Image");
-  //while(!main_disp.is_close()) {
-  //  main_disp.wait();
-  //}  
+  int count = 0;
+  for(int i = 0; i < raster_.height(); i++) {
+    for(int j = 0; j < raster_.width(); j++) {
+      if(raster_(i,j) > 0.1) {
+        count+= 1;
+        //cout << "Non-zero point in raster of value: " << raster_(i,j) << " at index[" << i << "][" << j << "] Num none-zero points: " << count << endl;
+      }
+    }  
+  }
 
 }
 
@@ -120,7 +137,7 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   // A new laser scan has been observed. Decide whether to add it as a pose
   // for SLAM. If decided to add, align it to the scan from the last saved pose,
   // and save both the scan and the optimized pose.
-  std::cout << "Entering Observe Laser" << std::endl;
+  //std::cout << "Entering Observe Laser" << std::endl;
   if(add_pose_ == false) {
     return;
   }
@@ -140,12 +157,14 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
     Vector2f point(ranges[i] * cos(phi), ranges[i] * sin(phi));
     scan.push_back(point - laserLoc);
   }
-  cout << "Saving point cloud with: " << scan.size() << " points" << endl; 
+  //cout << "Saving point cloud with: " << scan.size() << " points" << endl; 
   prev_scans_.push_back(scan);
   if(prev_scans_.size() == 1) {
     MakeRaster(scan);
     Matrix3f hold; 
-    hold << 0,0,0,0,0,0,0,0,0;
+    hold << 1,0,0,
+            0,0,0,
+            0,0,0;
     prev_transforms_.push_back(hold);
     return;
   }
@@ -153,6 +172,8 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   // Motion model
   float delta_x = curr_odom_loc_.x() - prev_odom_loc_.x();
   float delta_y = curr_odom_loc_.y() - prev_odom_loc_.y();
+  float robot_delta_x  = delta_x * cos(prev_odom_angle_) + delta_y * sin(prev_odom_angle_);
+  float robot_delta_y  = delta_y * cos(prev_odom_angle_) - delta_x * sin(prev_odom_angle_);
   float delta_angle = curr_odom_angle_ - prev_odom_angle_;
   
   float k1 = 0.05;
@@ -160,8 +181,8 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   float k3 = 0.10; 
   float k4 = 0.35;
   
-  float std_loc = k1 * sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + k2 * abs(delta_angle);
-  float std_angle = k3 * sqrt(pow(delta_x, 2) + pow(delta_y, 2)) + k4 * abs(delta_angle);
+  float std_loc = k1 * sqrt(pow(robot_delta_x, 2) + pow(robot_delta_y, 2)) + k2 * abs(delta_angle);
+  float std_angle = k3 * sqrt(pow(robot_delta_x, 2) + pow(robot_delta_y, 2)) + k4 * abs(delta_angle);
   
   // Reset prev odom 
   prev_odom_loc_ = curr_odom_loc_;
@@ -171,13 +192,15 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
   Matrix3f T, T_best;
   T << 0,0,0,
        0,0,0,
-       0,0,0;
+       0,0,1;
   T_best << 0,0,0, 
             0,0,0,
-            0,0,0; 
+            0,0,1; 
 
   //check CUBE 
   double prob_max = 0; 
+  float best_x;
+  float best_y;
   for(int i = -45; i <=45; i++) { // check potential theta's -45 degrees to 45
     float theta = M_PI / 180.0 * i; // angle in radians
     vector<Vector2f> t_scan;  // scan pointcloud transformed with only rotation
@@ -196,24 +219,28 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
       point.y() = T(1,0) * scan[m].x() + T(1,1) * scan[m].y() + T(1,2);
       t_scan.push_back(point);
     }
-    for(int x = -100; x < 101; x+=4) { //translation in x direction +- 1m (j is in cm)
-      for(int y = -100; y < 101; y+=4) { // translation in y direction +-1m (k is in cm)
+    for(int x = -100; x < 101; x+=2) { //translation in x direction +- 1m (j is in cm)
+      for(int y = -100; y < 101; y+=2) { // translation in y direction +-1m (k is in cm)
         double OLH_prob = 0;
         for(auto p : t_scan) {
           Vector2i index = GetRasterIndex(p + Vector2f(x/100.0, y/100.0));
           OLH_prob += raster_(index.y(), index.x()); 
         }
         OLH_prob = OLH_prob / t_scan.size();
-        double MM_prob = (-1 * pow(x/100.0 - delta_x, 2) / (2 * pow(std_loc, 2)) 
-                  + -1 * pow(y/100.0 - delta_y, 2) / (2 * pow(std_loc, 2))
+        double MM_prob = (-1 * pow(x/100.0 - robot_delta_x, 2) / (2 * pow(std_loc, 2)) 
+                  + -1 * pow(y/100.0 - robot_delta_y, 2) / (2 * pow(std_loc, 2))
                   + -1 * pow(theta - delta_angle, 2) / (2 * pow(std_angle, 2)));
         MM_prob = exp(MM_prob);
-        if (OLH_prob * MM_prob > prob_max) {
-          prob_max = OLH_prob + MM_prob;
+        if (/*OLH_prob *TODO */MM_prob > prob_max) {
+          prob_max = /*OLH_prob + TODO */MM_prob;
           T_best = T;
           T_best(0,2) = x/100.0 * cos(theta) - y/100.0 * sin(theta);
           T_best(1,2) = x/100.0 * sin(theta) + y/100.0 * cos(theta);
-          cout << "########## " << prob_max << "/" << t_scan.size() << endl  << T_best << endl << "$$$$$$$$$$$$$$$" << endl;
+          best_x = x / 100.0;
+          best_y = y / 100.0;
+          T(2,0) = best_x;
+          T(2,1) = best_y; 
+          //cout << "########## delta theta odom: " << delta_angle << "  prob max: " << prob_max <<  endl  << T_best << endl << "$$$$$$$$$$$$$$$" << endl;
         }
       }
     }
@@ -227,13 +254,18 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
       T(1,1) = cos(delta_theta);
       T(1,2) = delta_x*sin(delta_theta) + delta_y*cos(delta_theta);
 */
+  cout << "odom delta_x = " << delta_x << " delta_y = " << delta_y << endl;
+  cout << "odom angle = " << curr_odom_angle_ << endl;
+  cout << "robot_delta_x = " << robot_delta_x << " robot_delta_y = " << robot_delta_y << endl;
+  cout << "chosen delta_x = " << best_x << " delta_y = " << best_y << endl;
+  cout << "delta_angle = " << delta_angle << " acos(cos(theta)) = theta = " << acos(T_best(0,0)) << endl;
   cout << "Best transformation matrix: " << endl << T_best << endl;  
   prev_transforms_.push_back(T_best); 
   MakeRaster(scan); 
 }
 
 void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
-  std::cout << "Entering Observe Odometry" << std::endl;
+  //std::cout << "Entering Observe Odometry" << std::endl;
   if (!odom_initialized_) {
     prev_odom_angle_ = odom_angle;
     prev_odom_loc_ = odom_loc;
@@ -265,7 +297,7 @@ vector<Vector2f> SLAM::GetMap() {
   } 
   // Go through all previous scans except the first scan in reverse order and 
   // apply transformations 
-  cout << "Num Maps: " << prev_scans_.size() << endl;
+  //cout << "Num Maps: " << prev_scans_.size() << endl;
   for(size_t i = prev_scans_.size() - 1; i > 0; i--) {
     // Update all points in current map
     for(size_t j = 0; j < map.size(); j++){
