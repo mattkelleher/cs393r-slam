@@ -90,9 +90,9 @@ Vector2i SLAM::GetRasterIndex(Vector2f point) {
 }
 
 void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
-  // We have a resolution of 4cm, total space is 62m (30m max range from center in all direction
+  // We have a resolution of 4cm, total space is 64m (30m max range from center in all direction
   // + bonus 2m for translation (max should only be 1m so we should never get out of bounds indices.
-  // As such our image only needs to be 6200/4 = 800px by 800px. Each pixel corresponds to a 
+  // As such our image only needs to be 6400/4 = 1600px by 1600px. Each pixel corresponds to a 
   // 4cm x 4cm area in the real world  
   //std::cout << "Entering Make Raster" << std::endl;
   CImg<float> image(1600, 1600, 1, 1, 0);
