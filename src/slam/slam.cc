@@ -104,29 +104,13 @@ void SLAM::MakeRaster(vector<Vector2f> pointCloud) {
       std::cout << "Point: (" << point.x() << ", " << point.y() << ")   Index[" << index.x() << "][" << index.y() << "]" << std::endl;
       continue;
     }
-    //float color = 1.0;
-    //cout << "@@@@@@@@@@@@@@@@@@ Drawing point (" << point.x() << ", " << point.y() << ") at: [" << index.x() << "][" << index.y() << "]" << endl;
-    //image.draw_point(index.x(), index.y(), &color);
     image(index.x(), index.y()) += 1;
-    //raster_.draw_point(index.x(), index.y(), &color);
-    //cout << "Point has value: " << image(index.x(), index.y()) << endl; 
-    //cout << "Point has value: " << raster_(index.x(), index.y()) << endl; 
   }
   
   image.blur(4); //TODO blur over 10cm, not sure what value this should be
-  //raster_.blur(4); //TODO remove 
+  image.normalize(0,255);
   raster_ = image; 
-  raster_.save("raster.png");
-  int count = 0;
-  for(int i = 0; i < raster_.height(); i++) {
-    for(int j = 0; j < raster_.width(); j++) {
-      if(raster_(i,j) > 0.1) {
-        count+= 1;
-        //cout << "Non-zero point in raster of value: " << raster_(i,j) << " at index[" << i << "][" << j << "] Num none-zero points: " << count << endl;
-      }
-    }  
-  }
-
+  //raster_.save("raster.png");
 }
 
 void SLAM::ObserveLaser(const vector<float>& ranges,
@@ -231,8 +215,8 @@ void SLAM::ObserveLaser(const vector<float>& ranges,
                   + -1 * pow(y/100.0 - robot_delta_y, 2) / (2 * pow(std_loc, 2))
                   + -1 * pow(theta - delta_angle, 2) / (2 * pow(std_angle, 2)));
         MM_prob = exp(MM_prob);
-        if (/*OLH_prob *TODO */MM_prob > prob_max) {
-          prob_max = /*OLH_prob + TODO */MM_prob;
+        if (OLH_prob /** MM_prob*/ > prob_max) {
+          prob_max = OLH_prob /** MM_prob*/;
           T_best = T;
           T_best(0,2) = x/100.0 * cos(theta) - y/100.0 * sin(theta);
           T_best(1,2) = x/100.0 * sin(theta) + y/100.0 * cos(theta);
@@ -279,7 +263,7 @@ void SLAM::ObserveOdometry(const Vector2f& odom_loc, const float odom_angle) {
   float delta_angle = odom_angle - prev_odom_angle_;
   float delta_dist = sqrt(pow((odom_loc.x() - prev_odom_loc_.x()), 2) + pow((odom_loc.y() - prev_odom_loc_.y()), 2));
 
-  if((delta_angle > M_PI / 6.0) || delta_dist > 0.5) { //TODO what should thresholds be?
+  if((delta_angle > M_PI / 6.0) || delta_dist > 0.3) { //TODO what should thresholds be?
     cout << "Threshold exceeded, add pose !!" << endl;
     add_pose_ = true;
   }
